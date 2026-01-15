@@ -3,7 +3,10 @@ use std::{sync::RwLock, time::SystemTime};
 use super::models::{AssetClass, AssetProfile, AssetSubClass, PriceDetail, YahooResult};
 use crate::market_data::market_data_errors::MarketDataError;
 use crate::market_data::market_data_model::DataSource;
-use crate::market_data::{AssetProfiler, MarketDataProvider, Quote as ModelQuote, QuoteSummary};
+use crate::market_data::{
+    AssetProfiler, MarketDataProvider, Quote as ModelQuote, QuoteSummary,
+};
+use crate::market_data::market_data_model::OwnershipStatus;
 use chrono::{DateTime, TimeZone, Utc};
 use lazy_static::lazy_static;
 use log::{debug, warn};
@@ -32,6 +35,7 @@ impl From<&YQuoteItem> for QuoteSummary {
             score: item.score,
             type_display: item.type_display.clone(),
             long_name: item.long_name.clone(),
+            ownership_status: OwnershipStatus::None,
         }
     }
 }

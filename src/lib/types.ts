@@ -14,6 +14,12 @@ export {
 
 export type { ImportRequiredField } from "./constants";
 
+export enum OwnershipStatus {
+  NONE = "NONE",
+  CURRENTLY_OWNED = "CURRENTLY_OWNED",
+  PREVIOUSLY_OWNED = "PREVIOUSLY_OWNED",
+}
+
 export interface Account {
   id: string;
   name: string;
@@ -165,6 +171,7 @@ export interface QuoteSummary {
   sector?: string;
   industry?: string;
   dataSource?: string;
+  ownershipStatus?: OwnershipStatus;
 }
 
 export interface MarketDataProviderInfo {

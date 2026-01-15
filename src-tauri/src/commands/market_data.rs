@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::{
@@ -8,18 +8,118 @@ use crate::{
 
 use log::{debug, error};
 use tauri::{AppHandle, State};
-use wealthfolio_core::market_data::{MarketDataProviderInfo, Quote, QuoteImport, QuoteSummary};
+use wealthfolio_core::market_data::{
+    MarketDataProviderInfo, Quote, QuoteImport, QuoteSummary, search_ownership,
+};
+use wealthfolio_core::market_data::market_data_model::OwnershipStatus;
 
 #[tauri::command]
 pub async fn search_symbol(
     query: String,
     state: State<'_, Arc<ServiceContext>>,
 ) -> Result<Vec<QuoteSummary>, String> {
-    state
+    // Get external results from providers
+    let mut results = state
         .market_data_service()
         .search_symbol(&query)
         .await
-        .map_err(|e| format!("Failed to search ticker: {}", e))
+        .map_err(|e| format!("Failed to search ticker: {}", e))?
+        .into_iter()
+        .map(|mut r| {
+            r.ownership_status = OwnershipStatus::None;
+            r
+        })
+        .collect::<Vec<_>>();
+
+    // Get all accounts
+    let accounts = match state.account_service().get_all_accounts() {
+        Ok(accounts) => accounts,
+        Err(e) => {
+            debug!("Failed to get accounts: {}", e);
+            return Ok(results);
+        }
+    };
+
+    // Aggregate currently owned symbols across all accounts
+    let mut currently_owned: HashMap<String, OwnershipStatus> = HashMap::new();
+    for account in &accounts {
+        match state.holdings_service().get_ownership_status(&account.id).await {
+            Ok(ownership) => {
+                for (symbol, status) in ownership {
+                    if status == OwnershipStatus::CurrentlyOwned {
+                        currently_owned.insert(symbol, OwnershipStatus::CurrentlyOwned);
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Failed to get ownership status for account {}: {}", account.id, e);
+            }
+        }
+    }
+
+    // Get all activity symbols (previously owned) across all accounts
+    let previously_owned = match state.activity_service().get_activities() {
+        Ok(activities) => {
+            search_ownership::get_previously_owned_from_activities(&activities)
+        }
+        Err(e) => {
+            debug!("Failed to get activities: {}", e);
+            HashSet::new()
+        }
+    };
+
+    // Combine all owned symbols
+    let all_owned: HashSet<String> = currently_owned
+        .keys()
+        .chain(previously_owned.iter())
+        .cloned()
+        .collect();
+
+    // Fetch asset details for owned symbols
+    let owned_assets = if !all_owned.is_empty() {
+        match state
+            .asset_service()
+            .get_assets_by_symbols(&all_owned.into_iter().collect::<Vec<_>>())
+            .await
+        {
+            Ok(assets) => assets,
+            Err(e) => {
+                debug!("Failed to get assets: {}", e);
+                Vec::new()
+            }
+        }
+    } else {
+        Vec::new()
+    };
+
+    // Filter assets that match the query
+    let query_lower = query.to_lowercase();
+    let matching_assets: Vec<_> = owned_assets
+        .into_iter()
+        .filter(|asset| {
+            asset
+                .name
+                .as_ref()
+                .map(|n| n.to_lowercase().contains(&query_lower))
+                .unwrap_or(false)
+                || asset.symbol.to_lowercase().contains(&query_lower)
+                || asset
+                    .symbol_mapping
+                    .as_ref()
+                    .map(|m| m.to_lowercase().contains(&query_lower))
+                    .unwrap_or(false)
+        })
+        .collect();
+
+    // Use the helper to enrich results
+    results = search_ownership::enrich_search_results_with_ownership(
+        results,
+        matching_assets,
+        &currently_owned,
+        &previously_owned,
+    );
+
+    Ok(results)
 }
 
 #[tauri::command]

@@ -2,6 +2,7 @@ use crate::assets::AssetServiceTrait;
 use crate::assets_model::{Asset, Country as AssetCountry, Sector as AssetSector};
 use crate::errors::{CalculatorError, Error as CoreError, Result};
 use crate::fx::currency::{get_normalization_rule, normalize_currency_code};
+use crate::market_data::market_data_model::OwnershipStatus;
 use crate::portfolio::holdings::holdings_model::{
     Country, Holding, HoldingType, Instrument, MonetaryValue, Sector,
 };
@@ -28,6 +29,13 @@ pub trait HoldingsServiceTrait: Send + Sync {
         asset_id: &str,
         base_currency: &str,
     ) -> Result<Option<Holding>>;
+
+    /// Gets ownership status for all assets in an account.
+    /// Returns a HashMap mapping asset symbol to OwnershipStatus.
+    async fn get_ownership_status(
+        &self,
+        account_id: &str,
+    ) -> Result<HashMap<String, OwnershipStatus>>;
 }
 
 #[derive(Clone)]
@@ -519,6 +527,38 @@ impl HoldingsServiceTrait for HoldingsService {
                 Err(e)
             }
         }
+    }
+
+    async fn get_ownership_status(
+        &self,
+        account_id: &str,
+    ) -> Result<HashMap<String, OwnershipStatus>> {
+        debug!("Getting ownership status for account {}", account_id);
+
+        let mut ownership_map: HashMap<String, OwnershipStatus> = HashMap::new();
+
+        // Get currently owned symbols from snapshot
+        if let Ok(Some(snapshot)) = self
+            .snapshot_service
+            .get_latest_holdings_snapshot(account_id)
+        {
+            for (asset_id, position) in snapshot.positions {
+                if position.quantity > Decimal::ZERO {
+                    ownership_map.insert(asset_id, OwnershipStatus::CurrentlyOwned);
+                }
+            }
+        }
+
+        debug!(
+            "Ownership status for account {}: {} currently owned",
+            account_id,
+            ownership_map
+                .values()
+                .filter(|s| **s == OwnershipStatus::CurrentlyOwned)
+                .count()
+        );
+
+        Ok(ownership_map)
     }
 }
 

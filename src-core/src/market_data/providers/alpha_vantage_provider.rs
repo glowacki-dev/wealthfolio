@@ -2,6 +2,7 @@ use crate::market_data::market_data_model::DataSource;
 use crate::market_data::providers::market_data_provider::MarketDataProvider;
 use crate::market_data::providers::models::AssetProfile;
 use crate::market_data::{AssetProfiler, MarketDataError, Quote as ModelQuote, QuoteSummary};
+use crate::market_data::market_data_model::OwnershipStatus;
 use async_trait::async_trait;
 use chrono::{NaiveDate, Utc};
 use futures;
@@ -390,6 +391,7 @@ impl AssetProfiler for AlphaVantageProvider {
                 score: m.match_score.parse::<f64>().unwrap_or(0.0),
                 type_display: "".to_string(),
                 index: "".to_string(),
+                ownership_status: OwnershipStatus::None,
             })
             .collect();
 

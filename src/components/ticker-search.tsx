@@ -2,9 +2,10 @@ import { searchTicker } from "@/commands/market-data";
 import { Button } from "@/components/ui/button";
 import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Icons } from "@/components/ui/icons";
+import { OwnershipBadge } from "@/components/market-data";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { QuoteSummary } from "@/lib/types";
+import type { QuoteSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Command as CommandPrimitive } from "cmdk";
@@ -80,7 +81,10 @@ const SearchResults = memo(
                   selectedResult?.symbol === ticker.symbol ? "opacity-100" : "opacity-0",
                 )}
               />
-              {ticker.symbol} - {ticker.longName} ({ticker.exchange})
+              <span className="flex-1 truncate">
+                {ticker.symbol} - {ticker.longName} ({ticker.exchange})
+              </span>
+              <OwnershipBadge status={ticker.ownershipStatus} className="ml-2 text-xs" />
             </CommandItem>
           );
         })}
@@ -162,10 +166,8 @@ const TickerSearchInput = forwardRef<HTMLButtonElement, SearchProps>(
       gcTime: 300000, // Keep in cache for 5 minutes (formerly cacheTime)
     });
 
-    // Memoize sorted results
-    const sortedTickers = useMemo(() => {
-      return data?.sort((a, b) => b.score - a.score);
-    }, [data]);
+    // Results are now sorted on the backend by ownership status and score
+    const tickers = data;
 
     // Calculate display name for the button
     const displayName = selected || placeholder;
@@ -233,7 +235,7 @@ const TickerSearchInput = forwardRef<HTMLButtonElement, SearchProps>(
               isLoading={isLoading}
               isError={isError}
               query={debouncedQuery}
-              results={sortedTickers}
+              results={tickers}
               selectedResult={selectedResult}
               onSelect={handleSelectResult}
             />

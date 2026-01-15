@@ -129,6 +129,30 @@ pub struct QuoteSummary {
     pub score: f64,
     pub type_display: String,
     pub long_name: String,
+    #[serde(default)]
+    pub ownership_status: OwnershipStatus,
+}
+
+impl QuoteSummary {
+    /// Create a QuoteSummary from a local Asset record.
+    /// Used for including owned assets in search results.
+    pub fn from_asset(
+        asset: &crate::assets::assets_model::Asset,
+        score: f64,
+        ownership_status: OwnershipStatus,
+    ) -> Self {
+        QuoteSummary {
+            symbol: asset.symbol.clone(),
+            short_name: asset.name.clone().unwrap_or_default(),
+            long_name: asset.name.clone().unwrap_or_default(),
+            quote_type: asset.asset_type.clone().unwrap_or("UNKNOWN".to_string()),
+            exchange: String::new(),
+            index: String::new(),
+            score,
+            type_display: String::new(),
+            ownership_status,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -178,6 +202,16 @@ impl From<&str> for DataSource {
             _ => DataSource::Manual,
         }
     }
+}
+
+/// Ownership status for a security in search results
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OwnershipStatus {
+    #[default]
+    None,
+    CurrentlyOwned,
+    PreviouslyOwned,
 }
 
 #[derive(Clone, Debug)]

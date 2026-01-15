@@ -1,8 +1,8 @@
 use crate::market_data::market_data_errors::MarketDataError;
 use crate::market_data::providers::models::AssetProfile;
 use crate::market_data::{
-    market_data_model::DataSource, AssetProfiler, MarketDataProvider, Quote as ModelQuote,
-    QuoteSummary,
+    market_data_model::{DataSource, OwnershipStatus}, AssetProfiler, MarketDataProvider,
+    Quote as ModelQuote, QuoteSummary,
 };
 use chrono::{DateTime, Utc};
 use num_traits::FromPrimitive;
@@ -158,6 +158,7 @@ impl AssetProfiler for MetalPriceApiProvider {
                 index: "".to_string(),
                 score: calculate_score("gold", "xau", &query),
                 type_display: "".to_string(),
+                ownership_status: OwnershipStatus::None,
             });
         }
 
@@ -172,6 +173,7 @@ impl AssetProfiler for MetalPriceApiProvider {
                 index: "".to_string(),
                 score: calculate_score("silver", "xag", &query),
                 type_display: "".to_string(),
+                ownership_status: OwnershipStatus::None,
             });
         }
 
@@ -186,6 +188,7 @@ impl AssetProfiler for MetalPriceApiProvider {
                 index: "".to_string(),
                 score: calculate_score("platinum", "xpt", &query),
                 type_display: "".to_string(),
+                ownership_status: OwnershipStatus::None,
             });
         }
 
@@ -200,6 +203,7 @@ impl AssetProfiler for MetalPriceApiProvider {
                 index: "".to_string(),
                 score: calculate_score("palladium", "xpd", &query),
                 type_display: "".to_string(),
+                ownership_status: OwnershipStatus::None,
             });
         }
 
@@ -214,6 +218,7 @@ impl AssetProfiler for MetalPriceApiProvider {
                 index: "".to_string(),
                 score: calculate_score("rhodium", "xrh", &query),
                 type_display: "".to_string(),
+                ownership_status: OwnershipStatus::None,
             });
         }
 

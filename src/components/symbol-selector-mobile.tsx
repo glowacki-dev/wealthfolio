@@ -1,6 +1,7 @@
 import { searchTicker } from "@/commands/market-data";
 import { Button } from "@/components/ui/button";
 import { Icons } from "@/components/ui/icons";
+import { OwnershipBadge } from "@/components/market-data";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -11,7 +12,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { QuoteSummary } from "@/lib/types";
+import type { QuoteSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { forwardRef, useState } from "react";
@@ -54,8 +55,8 @@ export const SymbolSelectorMobile = forwardRef<HTMLButtonElement, SymbolSelector
       enabled: searchQuery?.length > 1,
     });
 
-    // Sort search results by score if available
-    const sortedSearchResults = searchResults?.sort((a, b) => b.score - a.score) ?? [];
+    // Results are now sorted on the backend by ownership status and score
+    const sortedSearchResults = searchResults ?? [];
 
     const handleSymbolSelect = (ticker: QuoteSummary) => {
       onSelect(ticker.symbol);
@@ -149,6 +150,7 @@ export const SymbolSelectorMobile = forwardRef<HTMLButtonElement, SymbolSelector
                             <span className="text-foreground truncate font-medium">
                               {ticker.longName || ticker.symbol}
                             </span>
+                            <OwnershipBadge status={ticker.ownershipStatus} className="text-xs" />
                             <span className="text-muted-foreground text-xs font-medium">
                               {ticker.symbol}
                             </span>

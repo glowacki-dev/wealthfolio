@@ -11,6 +11,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { OwnershipBadge } from "@/components/market-data";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DataSource } from "@/lib/constants";
 import { QueryKeys } from "@/lib/query-keys";
@@ -56,9 +57,10 @@ export function SymbolAutocompleteCell({
     gcTime: 300000,
   });
 
+  // Results are now sorted on the backend by ownership status and score
   const options = useMemo(() => {
     if (!data?.length) return [];
-    return [...data].sort((a, b) => b.score - a.score);
+    return data;
   }, [data]);
 
   useEffect(() => {
@@ -255,9 +257,12 @@ export function SymbolAutocompleteCell({
                     className="flex items-center justify-between"
                   >
                     <div className="flex flex-col">
-                      <span className="font-mono text-xs font-semibold uppercase">
-                        {option.symbol}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-semibold uppercase">
+                          {option.symbol}
+                        </span>
+                        <OwnershipBadge status={option.ownershipStatus} className="text-xs" />
+                      </div>
                       <span className="text-muted-foreground text-xs">{displayName(option)}</span>
                     </div>
                     <div className="flex items-center gap-2">

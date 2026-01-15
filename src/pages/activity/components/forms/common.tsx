@@ -210,7 +210,11 @@ export function AssetSymbolInput({
             aria-label="Symbol"
           />
         ) : (
-          <TickerSearchInput onSelectResult={handleTickerSelect} {...field} aria-label="Symbol" />
+          <TickerSearchInput
+            onSelectResult={handleTickerSelect}
+            {...field}
+            aria-label="Symbol"
+          />
         )}
       </FormControl>
       <FormMessage className="text-xs" />

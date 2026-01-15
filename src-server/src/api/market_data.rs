@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::{
@@ -11,9 +12,11 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
+use wealthfolio_core::accounts::AccountServiceTrait;
 use wealthfolio_core::market_data::{
-    MarketDataProviderInfo, MarketDataProviderSetting, Quote, QuoteImport,
+    MarketDataProviderInfo, MarketDataProviderSetting, Quote, QuoteImport, search_ownership,
 };
+use wealthfolio_core::market_data::market_data_model::OwnershipStatus;
 
 async fn get_market_data_providers(
     State(state): State<Arc<AppState>>,
@@ -63,8 +66,114 @@ async fn search_symbol(
     State(state): State<Arc<AppState>>,
     Query(q): Query<SearchQuery>,
 ) -> ApiResult<Json<Vec<wealthfolio_core::market_data::QuoteSummary>>> {
-    let res = state.market_data_service.search_symbol(&q.query).await?;
-    Ok(Json(res))
+    // Get external results from providers
+    let mut results = state
+        .market_data_service
+        .search_symbol(&q.query)
+        .await?
+        .into_iter()
+        .map(|mut r| {
+            r.ownership_status = OwnershipStatus::None;
+            r
+        })
+        .collect::<Vec<_>>();
+
+    // Get all accounts
+    let accounts = state
+        .account_service
+        .get_all_accounts()
+        .map_err(|e| {
+            tracing::debug!("Failed to get accounts: {}", e);
+            e
+        })?;
+
+    // Aggregate currently owned symbols across all accounts
+    let mut currently_owned: std::collections::HashMap<String, OwnershipStatus> =
+        std::collections::HashMap::new();
+    for account in &accounts {
+        match state
+            .holdings_service
+            .get_ownership_status(&account.id)
+            .await
+        {
+            Ok(ownership) => {
+                for (symbol, status) in ownership {
+                    if status == OwnershipStatus::CurrentlyOwned {
+                        currently_owned.insert(symbol, OwnershipStatus::CurrentlyOwned);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::debug!(
+                    "Failed to get ownership status for account {}: {}",
+                    account.id,
+                    e
+                );
+            }
+        }
+    }
+
+    // Get all activity symbols (previously owned) across all accounts
+    let previously_owned = match state.activity_service.get_activities() {
+        Ok(activities) => search_ownership::get_previously_owned_from_activities(&activities),
+        Err(e) => {
+            tracing::debug!("Failed to get activities: {}", e);
+            HashSet::new()
+        }
+    };
+
+    // Combine all owned symbols
+    let all_owned: HashSet<String> = currently_owned
+        .keys()
+        .chain(previously_owned.iter())
+        .cloned()
+        .collect();
+
+    // Fetch asset details for owned symbols
+    let owned_assets = if !all_owned.is_empty() {
+        match state
+            .asset_service
+            .get_assets_by_symbols(&all_owned.into_iter().collect::<Vec<_>>())
+            .await
+        {
+            Ok(assets) => assets,
+            Err(e) => {
+                tracing::debug!("Failed to get assets: {}", e);
+                Vec::new()
+            }
+        }
+    } else {
+        Vec::new()
+    };
+
+    // Filter assets that match the query
+    let query_lower = q.query.to_lowercase();
+    let matching_assets: Vec<_> = owned_assets
+        .into_iter()
+        .filter(|asset| {
+            asset
+                .name
+                .as_ref()
+                .map(|n| n.to_lowercase().contains(&query_lower))
+                .unwrap_or(false)
+                || asset.symbol.to_lowercase().contains(&query_lower)
+                || asset
+                    .symbol_mapping
+                    .as_ref()
+                    .map(|m| m.to_lowercase().contains(&query_lower))
+                    .unwrap_or(false)
+        })
+        .collect();
+
+    // Use the helper to enrich results
+    results = search_ownership::enrich_search_results_with_ownership(
+        results,
+        matching_assets,
+        &currently_owned,
+        &previously_owned,
+    );
+
+    Ok(Json(results))
 }
 
 #[derive(serde::Deserialize)]

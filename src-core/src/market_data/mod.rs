@@ -2,6 +2,11 @@ pub(crate) mod market_data_constants;
 pub(crate) mod market_data_errors;
 pub mod market_data_model;
 pub(crate) mod market_data_repository;
+pub mod search_ownership;
+
+#[cfg(test)]
+mod search_ownership_tests;
+
 pub(crate) mod market_data_service;
 pub(crate) mod market_data_traits;
 pub(crate) mod providers;
